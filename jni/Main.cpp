@@ -4,7 +4,6 @@
 #include <android/input.h>
 #include <android/native_window.h>
 #include <pthread.h>
-#include <unistd.h>
 #include <cstdio>
 #include "ImGui/imgui.h"
 #include "ImGui/backends/imgui_impl_android.h"
@@ -31,7 +30,7 @@ static MethodInfo *GetTouchMethodInfo = nullptr;
 
 static void BeginDraw() {
     ImGui::SetNextWindowSize(
-        ImVec2(540, 560),
+        ImVec2(420, 540),
         ImGuiCond_FirstUseEver
     );
 
@@ -40,7 +39,7 @@ static void BeginDraw() {
     ImGui::PushStyleVar(ImGuiStyleVar_GrabRounding, 7.0f);
     ImGui::PushStyleVar(
         ImGuiStyleVar_ItemSpacing,
-        ImVec2(12, 14)
+        ImVec2(10, 9)
     );
 
     ImGui::PushStyleColor(
@@ -65,8 +64,6 @@ static void BeginDraw() {
         nullptr,
         ImGuiWindowFlags_NoSavedSettings
     )) {
-        ImGui::Spacing();
-
         ImGui::TextColored(
             ImVec4(0.0f, 0.85f, 1.0f, 1.0f),
             "A I Z 3 N"
@@ -76,23 +73,19 @@ static void BeginDraw() {
         ImGui::TextDisabled("| PREMIUM CONTROL");
 
         ImGui::Separator();
-        ImGui::Spacing();
 
         ImGui::TextColored(
             ImVec4(0.0f, 1.0f, 0.85f, 1.0f),
             "[ FRIDA GUMJS SYSTEM ]"
         );
 
-        ImGui::Spacing();
-
         ImGui::BeginChild(
             "GravityStatus",
-            ImVec2(0, 105),
+            ImVec2(0, 88),
             true
         );
 
-        ImGui::TextDisabled("RUNTIME STATUS");
-
+        ImGui::TextDisabled("RUNTIME");
         ImGui::SameLine();
 
         ImGui::TextColored(
@@ -102,10 +95,7 @@ static void BeginDraw() {
             RuntimeReady ? "INITIALIZED" : "NOT INITIALIZED"
         );
 
-        ImGui::Spacing();
-
-        ImGui::TextDisabled("AGENT STATUS");
-
+        ImGui::TextDisabled("AGENT");
         ImGui::SameLine();
 
         ImGui::TextColored(
@@ -115,8 +105,6 @@ static void BeginDraw() {
             AgentLoaded ? "LOADED" : "NOT LOADED"
         );
 
-        ImGui::Spacing();
-
         ImGui::TextColored(
             FlyActive
                 ? ImVec4(0.0f, 1.0f, 0.7f, 1.0f)
@@ -125,8 +113,6 @@ static void BeginDraw() {
         );
 
         ImGui::EndChild();
-
-        ImGui::Spacing();
 
         ImGui::Text("RUNTIME CONTROLS");
         ImGui::Separator();
@@ -146,7 +132,7 @@ static void BeginDraw() {
 
         if (ImGui::Button(
             "INITIALIZE RUNTIME",
-            ImVec2(-1.0f, 48)
+            ImVec2(-1.0f, 40)
         )) {
             RuntimeReady = ScriptBridge_Init();
 
@@ -162,7 +148,7 @@ static void BeginDraw() {
 
         if (ImGui::Button(
             "LOAD AGENT",
-            ImVec2(-1.0f, 48)
+            ImVec2(-1.0f, 40)
         )) {
             if (RuntimeReady) {
                 AgentLoaded = ScriptBridge_LoadAgent();
@@ -180,13 +166,11 @@ static void BeginDraw() {
 
         ImGui::PopStyleColor(3);
 
-        ImGui::Spacing();
-
         ImGui::Text("FLIGHT CONTROLS");
         ImGui::Separator();
 
         const float buttonWidth =
-            (ImGui::GetContentRegionAvail().x - 12.0f) / 2.0f;
+            (ImGui::GetContentRegionAvail().x - 10.0f) / 2.0f;
 
         ImGui::PushStyleColor(
             ImGuiCol_Button,
@@ -203,14 +187,12 @@ static void BeginDraw() {
 
         if (ImGui::Button(
             "FLY MODE",
-            ImVec2(buttonWidth, 52)
+            ImVec2(buttonWidth, 44)
         )) {
-            if (AgentLoaded) {
-                if (ScriptBridge_SendCommand(
-                    "{\"type\":\"command\",\"payload\":{\"action\":\"enable\"}}"
-                )) {
-                    FlyActive = true;
-                }
+            if (AgentLoaded && ScriptBridge_SendCommand(
+                "{\"type\":\"command\",\"payload\":{\"action\":\"enable\"}}"
+            )) {
+                FlyActive = true;
             }
         }
 
@@ -231,21 +213,18 @@ static void BeginDraw() {
 
         if (ImGui::Button(
             "RESET GRAVITY",
-            ImVec2(buttonWidth, 52)
+            ImVec2(buttonWidth, 44)
         )) {
-            if (AgentLoaded) {
-                if (ScriptBridge_SendCommand(
-                    "{\"type\":\"command\",\"payload\":{\"action\":\"disable\"}}"
-                )) {
-                    FlyActive = false;
-                }
+            if (AgentLoaded && ScriptBridge_SendCommand(
+                "{\"type\":\"command\",\"payload\":{\"action\":\"set_gravity\",\"value\":1.0}}"
+            )) {
+                FlyActive = false;
+                ManualFlyGravity = 1.0f;
             }
         }
 
         ImGui::PopStyleColor(3);
         ImGui::PopStyleColor(3);
-
-        ImGui::Spacing();
 
         ImGui::Text("CUSTOM FLY GRAVITY");
         ImGui::Separator();
@@ -275,7 +254,7 @@ static void BeginDraw() {
 
         if (ImGui::Button(
             "SET FLY VALUE",
-            ImVec2(-1.0f, 48)
+            ImVec2(-1.0f, 40)
         )) {
             if (AgentLoaded) {
                 char command[160];
@@ -293,11 +272,9 @@ static void BeginDraw() {
 
         ImGui::PopStyleColor(3);
 
-        ImGui::Spacing();
-
         if (ImGui::Button(
             "GET AGENT STATUS",
-            ImVec2(-1.0f, 45)
+            ImVec2(-1.0f, 38)
         )) {
             if (AgentLoaded) {
                 ScriptBridge_SendCommand(
@@ -305,8 +282,6 @@ static void BeginDraw() {
                 );
             }
         }
-
-        ImGui::Spacing();
 
         ImGui::PushStyleColor(
             ImGuiCol_Button,
@@ -323,7 +298,7 @@ static void BeginDraw() {
 
         if (ImGui::Button(
             "UNLOAD AGENT",
-            ImVec2(-1.0f, 45)
+            ImVec2(-1.0f, 38)
         )) {
             if (AgentLoaded) {
                 ScriptBridge_UnloadAgent();
@@ -339,20 +314,14 @@ static void BeginDraw() {
             sizeof(AgentMessage)
         );
 
-        ImGui::Spacing();
         ImGui::Separator();
-
         ImGui::TextDisabled("AGENT MESSAGE");
         ImGui::TextWrapped("%s", AgentMessage);
-
-        ImGui::Spacing();
         ImGui::Separator();
-
         ImGui::TextDisabled("AIZ3N NATIVE | FRIDA GUMJS");
     }
 
     ImGui::End();
-
     ImGui::PopStyleColor(4);
     ImGui::PopStyleVar(4);
 }
@@ -394,12 +363,10 @@ static EGLBoolean _eglSwapBuffers(
         io.Fonts->AddFontFromMemoryTTF(
             (void *)&Roboto_Regular,
             sizeof(Roboto_Regular),
-            40.0f,
+            22.0f,
             &font_cfg,
             io.Fonts->GetGlyphRangesCyrillic()
         );
-
-        ImGui::GetStyle().ScaleAllSizes(2.0f);
 
         setup = true;
     }
