@@ -7,6 +7,7 @@
 #include <cstdio>
 #include <atomic>
 #include <chrono>
+#include <mutex>
 #include "ImGui/imgui.h"
 #include "ImGui/backends/imgui_impl_android.h"
 #include "ImGui/backends/imgui_impl_opengl3.h"
@@ -24,6 +25,8 @@ static std::chrono::steady_clock::time_point ToastTime;
 
 static GumInterceptor *Interceptor = nullptr;
 static GumInvocationListener *SwapListener = nullptr;
+static GumInvocationListener *InputListener = nullptr;
+static std::mutex ImGuiMutex;
 
 static void ShowToast(const char *message) {
     snprintf(ToastMessage, sizeof(ToastMessage), "%s", message);
@@ -147,6 +150,8 @@ static void BeginDraw() {
 }
 
 static void RenderFrame(EGLDisplay dpy, EGLSurface surface) {
+    std::lock_guard<std::mutex> lock(ImGuiMutex);
+
     eglQuerySurface(dpy, surface, EGL_WIDTH, &glWidth);
     eglQuerySurface(dpy, surface, EGL_HEIGHT, &glHeight);
 
@@ -199,6 +204,8 @@ static void OnSwapEnter(
     GumInvocationContext *context,
     gpointer user_data
 ) {
+    (void)user_data;
+
     EGLDisplay dpy = (EGLDisplay)gum_invocation_context_get_nth_argument(context, 0);
     EGLSurface surface = (EGLSurface)gum_invocation_context_get_nth_argument(context, 1);
 
@@ -211,6 +218,38 @@ static void OnSwapLeave(
 ) {
     (void)context;
     (void)user_data;
+}
+
+static void OnInputEnter(
+    GumInvocationContext *context,
+    gpointer user_data
+) {
+    (void)context;
+    (void)user_data;
+}
+
+static void OnInputLeave(
+    GumInvocationContext *context,
+    gpointer user_data
+) {
+    (void)user_data;
+
+    int result = GPOINTER_TO_INT(
+        gum_invocation_context_get_return_value(context)
+    );
+
+    if (result != 0) return;
+
+    AInputEvent **event = (AInputEvent **)
+        gum_invocation_context_get_nth_argument(context, 1);
+
+    if (!event || !*event) return;
+
+    std::lock_guard<std::mutex> lock(ImGuiMutex);
+
+    if (setup) {
+        ImGui_ImplAndroid_HandleInputEvent(*event);
+    }
 }
 
 static void *Init(void *) {
@@ -249,6 +288,35 @@ static void *Init(void *) {
         }
 
         g_object_unref(eglModule);
+    }
+
+    GumModule *androidModule = gum_process_find_module_by_name("libandroid.so");
+
+    if (Interceptor && androidModule) {
+        GumAddress inputAddress = gum_module_find_export_by_name(
+            androidModule,
+            "AInputQueue_getEvent"
+        );
+
+        if (inputAddress != 0) {
+            InputListener = gum_make_call_listener(
+                OnInputEnter,
+                OnInputLeave,
+                nullptr,
+                nullptr
+            );
+
+            if (InputListener) {
+                gum_interceptor_attach(
+                    Interceptor,
+                    GSIZE_TO_POINTER(inputAddress),
+                    InputListener,
+                    nullptr
+                );
+            }
+        }
+
+        g_object_unref(androidModule);
     }
 
     return nullptr;
