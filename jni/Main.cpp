@@ -22,25 +22,27 @@
 
 static bool FlyActive = false;
 static bool AgentLoaded = false;
+static bool RuntimeReady = false;
+static char AgentMessage[512] = "Runtime not initialized";
 static MethodInfo *TouchCountMethod = nullptr;
 static MethodInfo *GetTouchMethodInfo = nullptr;
 
 static void BeginDraw() {
     ImGui::SetNextWindowSize(
-        ImVec2(340, 205),
+        ImVec2(370, 340),
         ImGuiCond_FirstUseEver
     );
 
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 14.0f);
-    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 9.0f);
-    ImGui::PushStyleVar(ImGuiStyleVar_GrabRounding, 9.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 12.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 7.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_GrabRounding, 7.0f);
     ImGui::PushStyleVar(
         ImGuiStyleVar_WindowPadding,
-        ImVec2(16, 14)
+        ImVec2(13, 11)
     );
     ImGui::PushStyleVar(
         ImGuiStyleVar_ItemSpacing,
-        ImVec2(10, 12)
+        ImVec2(9, 9)
     );
 
     ImGui::PushStyleColor(
@@ -49,63 +51,128 @@ static void BeginDraw() {
     );
     ImGui::PushStyleColor(
         ImGuiCol_Border,
-        ImVec4(0.0f, 0.78f, 1.0f, 0.85f)
+        ImVec4(0.0f, 0.78f, 1.0f, 0.75f)
     );
     ImGui::PushStyleColor(
         ImGuiCol_TitleBg,
-        ImVec4(0.025f, 0.045f, 0.075f, 1.0f)
+        ImVec4(0.025f, 0.035f, 0.065f, 1.0f)
     );
     ImGui::PushStyleColor(
         ImGuiCol_TitleBgActive,
         ImVec4(0.025f, 0.09f, 0.15f, 1.0f)
     );
 
-    ImGui::PushStyleColor(
-        ImGuiCol_Button,
-        ImVec4(0.0f, 0.32f, 0.42f, 1.0f)
-    );
-    ImGui::PushStyleColor(
-        ImGuiCol_ButtonHovered,
-        ImVec4(0.0f, 0.52f, 0.68f, 1.0f)
-    );
-    ImGui::PushStyleColor(
-        ImGuiCol_ButtonActive,
-        ImVec4(0.0f, 0.25f, 0.38f, 1.0f)
-    );
-
-    ImGui::PushStyleColor(
-        ImGuiCol_Text,
-        ImVec4(0.88f, 0.96f, 1.0f, 1.0f)
-    );
-
     if (ImGui::Begin(
         "AIZ3N | VIP FLY",
         nullptr,
-        ImGuiWindowFlags_NoSavedSettings |
-        ImGuiWindowFlags_NoCollapse
+        ImGuiWindowFlags_NoSavedSettings
     )) {
-        ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 3);
-
         ImGui::PushStyleColor(
             ImGuiCol_Text,
-            ImVec4(0.0f, 0.88f, 1.0f, 1.0f)
+            ImVec4(0.0f, 0.85f, 1.0f, 1.0f)
         );
 
-        ImGui::SetWindowFontScale(1.15f);
         ImGui::TextUnformatted("A I Z 3 N");
-        ImGui::SetWindowFontScale(1.0f);
 
         ImGui::PopStyleColor();
 
         ImGui::SameLine();
+        ImGui::TextDisabled("| PREMIUM CONTROL");
 
-        ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 3);
+        ImGui::Separator();
 
-        ImGui::TextDisabled(
-            AgentLoaded ? "[ SYSTEM ONLINE ]" : "[ LOADING SYSTEM ]"
+        ImGui::TextColored(
+            ImVec4(0.0f, 1.0f, 0.85f, 1.0f),
+            "[ FRIDA GUMJS SYSTEM ]"
         );
 
-        ImGui::Spacing();
+        ImGui::BeginChild(
+            "SystemStatus",
+            ImVec2(0, 65),
+            true
+        );
+
+        ImGui::TextDisabled("RUNTIME");
+
+        ImGui::SameLine();
+
+        ImGui::TextColored(
+            RuntimeReady
+                ? ImVec4(0.0f, 1.0f, 0.8f, 1.0f)
+                : ImVec4(1.0f, 0.35f, 0.35f, 1.0f),
+            RuntimeReady ? "INITIALIZED" : "NOT INITIALIZED"
+        );
+
+        ImGui::TextDisabled("AGENT");
+
+        ImGui::SameLine();
+
+        ImGui::TextColored(
+            AgentLoaded
+                ? ImVec4(0.0f, 1.0f, 0.8f, 1.0f)
+                : ImVec4(1.0f, 0.35f, 0.35f, 1.0f),
+            AgentLoaded ? "LOADED" : "NOT LOADED"
+        );
+
+        ImGui::EndChild();
+
+        ImGui::Text("RUNTIME CONTROLS");
+        ImGui::Separator();
+
+        ImGui::PushStyleColor(
+            ImGuiCol_Button,
+            ImVec4(0.12f, 0.25f, 0.42f, 1.0f)
+        );
+        ImGui::PushStyleColor(
+            ImGuiCol_ButtonHovered,
+            ImVec4(0.15f, 0.42f, 0.68f, 1.0f)
+        );
+        ImGui::PushStyleColor(
+            ImGuiCol_ButtonActive,
+            ImVec4(0.05f, 0.3f, 0.55f, 1.0f)
+        );
+
+        if (ImGui::Button(
+            "INITIALIZE RUNTIME",
+            ImVec2(-1.0f, 38)
+        )) {
+            RuntimeReady = ScriptBridge_Init();
+
+            snprintf(
+                AgentMessage,
+                sizeof(AgentMessage),
+                "%s",
+                RuntimeReady
+                    ? "Runtime initialized"
+                    : "Runtime initialization failed"
+            );
+        }
+
+        if (ImGui::Button(
+            "LOAD AGENT",
+            ImVec2(-1.0f, 38)
+        )) {
+            if (RuntimeReady) {
+                AgentLoaded = ScriptBridge_LoadAgent();
+
+                snprintf(
+                    AgentMessage,
+                    sizeof(AgentMessage),
+                    "%s",
+                    AgentLoaded
+                        ? "Agent loaded"
+                        : "Agent loading failed"
+                );
+            }
+        }
+
+        ImGui::PopStyleColor(3);
+
+        ImGui::Text("FLIGHT CONTROLS");
+        ImGui::Separator();
+
+        const float buttonWidth =
+            (ImGui::GetContentRegionAvail().x - 9.0f) / 2.0f;
 
         ImGui::PushStyleColor(
             ImGuiCol_Button,
@@ -113,19 +180,27 @@ static void BeginDraw() {
                 ? ImVec4(0.0f, 0.42f, 0.38f, 1.0f)
                 : ImVec4(0.0f, 0.32f, 0.42f, 1.0f)
         );
+        ImGui::PushStyleColor(
+            ImGuiCol_ButtonHovered,
+            ImVec4(0.0f, 0.58f, 0.68f, 1.0f)
+        );
+        ImGui::PushStyleColor(
+            ImGuiCol_ButtonActive,
+            ImVec4(0.0f, 0.25f, 0.35f, 1.0f)
+        );
 
         if (ImGui::Button(
-            "FLY MODE  |  0.01",
-            ImVec2(-1.0f, 52)
+            "FLY MODE",
+            ImVec2(buttonWidth, 48)
         )) {
             if (AgentLoaded && ScriptBridge_SendCommand(
-                "{\"type\":\"command\",\"payload\":{\"action\":\"set_gravity\",\"value\":0.01}}"
+                "{\"type\":\"command\",\"payload\":{\"action\":\"enable\"}}"
             )) {
                 FlyActive = true;
             }
         }
 
-        ImGui::PopStyleColor();
+        ImGui::SameLine();
 
         ImGui::PushStyleColor(
             ImGuiCol_Button,
@@ -141,22 +216,38 @@ static void BeginDraw() {
         );
 
         if (ImGui::Button(
-            "RESET GRAVITY  |  1.0",
-            ImVec2(-1.0f, 52)
+            "RESET GRAVITY",
+            ImVec2(buttonWidth, 48)
         )) {
             if (AgentLoaded && ScriptBridge_SendCommand(
-                "{\"type\":\"command\",\"payload\":{\"action\":\"set_gravity\",\"value\":1.0}}"
+                "{\"type\":\"command\",\"payload\":{\"action\":\"disable\"}}"
             )) {
                 FlyActive = false;
             }
         }
 
         ImGui::PopStyleColor(3);
+        ImGui::PopStyleColor(3);
+
+        ImGui::Separator();
+
+        ImGui::TextDisabled("AGENT MESSAGE");
+
+        ScriptBridge_GetLastMessage(
+            AgentMessage,
+            sizeof(AgentMessage)
+        );
+
+        ImGui::TextWrapped("%s", AgentMessage);
+
+        ImGui::Separator();
+
+        ImGui::TextDisabled("AIZ3N NATIVE | GUMJS");
     }
 
     ImGui::End();
 
-    ImGui::PopStyleColor(8);
+    ImGui::PopStyleColor(4);
     ImGui::PopStyleVar(5);
 }
 
@@ -297,9 +388,7 @@ static EGLBoolean _eglSwapBuffers(
 static void *Init(void *) {
     SMAttach(targetLibName);
 
-    if (ScriptBridge_Init()) {
-        AgentLoaded = ScriptBridge_LoadAgent();
-    }
+    RuntimeReady = ScriptBridge_Init();
 
     auto swapBuffers = DobbySymbolResolver(
         OBFUSCATE("libEGL.so"),
