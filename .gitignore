@@ -1,0 +1,4 @@
+node_modules/
+build/
+obj/
+jni/third_party/frida-gumjs/libfrida-gumjs.a
