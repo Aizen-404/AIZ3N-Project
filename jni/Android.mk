@@ -37,20 +37,29 @@ LOCAL_LDLIBS := -llog \
                 -lm \
                 -pthread
 
-LOCAL_ARM_MODE := arm
-
 LOCAL_C_INCLUDES := \
     $(LOCAL_PATH) \
     $(LOCAL_PATH)/ImGui \
     $(LOCAL_PATH)/ImGui/backends \
     $(LOCAL_PATH)/third_party/frida-gumjs \
-    $(LOCAL_PATH)/build
+    $(LOCAL_PATH)/build \
+    $(LOCAL_PATH)/Il2cpp \
+    $(LOCAL_PATH)/KittyMemory
 
 LOCAL_SRC_FILES := \
     Main.cpp \
     GumRuntime.cpp \
     ScriptBridge.cpp \
     Includes/SM.cpp \
+    Il2cpp/Il2cpp.cpp \
+    Il2cpp/il2cpp-class.cpp \
+    Il2cpp/il2cpp_dump.cpp \
+    Il2cpp/xdl/xdl.c \
+    Il2cpp/xdl/xdl_iterate.c \
+    Il2cpp/xdl/xdl_linker.c \
+    Il2cpp/xdl/xdl_lzma.c \
+    Il2cpp/xdl/xdl_util.c \
+    KittyMemory/KittyMemory.cpp \
     ImGui/imgui.cpp \
     ImGui/imgui_draw.cpp \
     ImGui/imgui_tables.cpp \
