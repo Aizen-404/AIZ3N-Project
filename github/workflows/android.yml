@@ -1,0 +1,84 @@
+
+name: AIZ3N Native ARM64 Build
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build AIZ3N Native Library
+    runs-on: ubuntu-22.04
+
+    env:
+      ANDROID_API: "21"
+      NDK_VERSION: "29.0.14206865"
+      GUMJS_RELEASE: "gumjs-v1"
+      GUMJS_FILE: "libfrida-gumjs.a"
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install Node Dependencies
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci
+          elif [ -f package.json ]; then
+            npm install
+          else
+            echo "package.json not found"
+            exit 1
+          fi
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android NDK r29
+        run: |
+          sdkmanager "ndk;${NDK_VERSION}"
+          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/${NDK_VERSION}" >> "$GITHUB_ENV"
+          echo "$ANDROID_HOME/ndk/${NDK_VERSION}" >> "$GITHUB_PATH"
+
+      - name: Download Frida GumJS Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p jni/third_party/frida-gumjs
+          gh release download "$GUMJS_RELEASE" \
+            --repo "$GITHUB_REPOSITORY" \
+            --pattern "$GUMJS_FILE" \
+            --dir jni/third_party/frida-gumjs
+          test -s "jni/third_party/frida-gumjs/$GUMJS_FILE"
+
+      - name: Build AIZ3N
+        run: |
+          ndk-build \
+            NDK_PROJECT_PATH="$GITHUB_WORKSPACE" \
+            APP_BUILD_SCRIPT="$GITHUB_WORKSPACE/jni/Android.mk" \
+            NDK_APPLICATION_MK="$GITHUB_WORKSPACE/jni/Application.mk" \
+            -j"$(nproc)"
+
+      - name: Upload AIZ3N Library
+        uses: actions/upload-artifact@v4
+        with:
+          name: AIZ3N-arm64
+          path: libs/arm64-v8a/libaizen.so
+          if-no-files-found: error
