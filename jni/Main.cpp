@@ -11,13 +11,8 @@
 #include "ImGui/backends/imgui_impl_android.h"
 #include "ImGui/backends/imgui_impl_opengl3.h"
 #include "ImGui/misc/fonts/Roboto-Regular.h"
-#include "Includes/obfuscate.h"
-#include "Includes/Macros.h"
-#include "Includes/SM.h"
 #include "Includes/dex_data.h"
 #include "Includes/JNIStuff.h"
-#include "Il2cpp/il2cpp-class.h"
-#include "Il2cpp/Il2cpp.h"
 #include "ScriptBridge.h"
 #include "frida-gumjs.h"
 #include "Hook.h"
@@ -26,8 +21,6 @@ static bool FlyActive = false;
 static std::atomic<bool> AgentReady(false);
 static char ToastMessage[96] = "";
 static std::chrono::steady_clock::time_point ToastTime;
-static MethodInfo *TouchCountMethod = nullptr;
-static MethodInfo *GetTouchMethodInfo = nullptr;
 
 static GumInterceptor *Interceptor = nullptr;
 static GumInvocationListener *SwapListener = nullptr;
@@ -194,54 +187,6 @@ static void RenderFrame(EGLDisplay dpy, EGLSurface surface) {
         ShowKeyboard(keyboardState);
     }
 
-    if (!TouchCountMethod) {
-        TouchCountMethod = Il2cpp::FindMethod(
-            OBFUSCATE("UnityEngine.Input"),
-            OBFUSCATE("get_touchCount"),
-            0
-        );
-    }
-
-    if (!GetTouchMethodInfo) {
-        GetTouchMethodInfo = Il2cpp::FindMethod(
-            OBFUSCATE("UnityEngine.Input"),
-            OBFUSCATE("GetTouch"),
-            1
-        );
-    }
-
-    if (TouchCountMethod && GetTouchMethodInfo) {
-        int touchCount = TouchCountMethod->invoke_static<int>();
-
-        if (touchCount > 0) {
-            auto touch = GetTouchMethodInfo->invoke_static<UnityEngine_Touch_Fields>(0);
-            float reverseY = io.DisplaySize.y - touch.m_Position.fields.y;
-
-            switch (touch.m_Phase) {
-                case TouchPhase::Began:
-                case TouchPhase::Stationary:
-                    io.MousePos = ImVec2(touch.m_Position.fields.x, reverseY);
-                    io.MouseDown[0] = true;
-                    break;
-
-                case TouchPhase::Ended:
-                case TouchPhase::Canceled:
-                    io.MouseDown[0] = false;
-                    should_clear_mouse_pos = true;
-                    break;
-
-                case TouchPhase::Moved:
-                    io.MousePos = ImVec2(touch.m_Position.fields.x, reverseY);
-                    break;
-
-                default:
-                    break;
-            }
-        } else {
-            io.MouseDown[0] = false;
-        }
-    }
-
     ImGui_ImplOpenGL3_NewFrame();
     ImGui::NewFrame();
     BeginDraw();
@@ -254,8 +199,8 @@ static void OnSwapEnter(
     GumInvocationContext *context,
     gpointer user_data
 ) {
-    EGLDisplay dpy = (EGLDisplay) gum_invocation_context_get_nth_argument(context, 0);
-    EGLSurface surface = (EGLSurface) gum_invocation_context_get_nth_argument(context, 1);
+    EGLDisplay dpy = (EGLDisplay)gum_invocation_context_get_nth_argument(context, 0);
+    EGLSurface surface = (EGLSurface)gum_invocation_context_get_nth_argument(context, 1);
 
     RenderFrame(dpy, surface);
 }
@@ -264,13 +209,11 @@ static void OnSwapLeave(
     GumInvocationContext *context,
     gpointer user_data
 ) {
-    (void) context;
-    (void) user_data;
+    (void)context;
+    (void)user_data;
 }
 
 static void *Init(void *) {
-    SMAttach(targetLibName);
-
     bool runtime = ScriptBridge_Init();
 
     if (runtime) {
@@ -304,6 +247,8 @@ static void *Init(void *) {
                 );
             }
         }
+
+        g_object_unref(eglModule);
     }
 
     return nullptr;
