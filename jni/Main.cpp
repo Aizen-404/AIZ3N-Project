@@ -20,6 +20,7 @@
 #include "Il2cpp/Il2cpp.h"
 #include "ScriptBridge.h"
 #include "frida-gumjs.h"
+#include "Hook.h"
 
 static bool FlyActive = false;
 static std::atomic<bool> AgentReady(false);
@@ -152,21 +153,6 @@ static void BeginDraw() {
     ImGui::PopStyleVar(5);
 }
 
-static void OnSwapEnter(GumInvocationContext *context, gpointer user_data) {
-    (void) context;
-    (void) user_data;
-}
-
-static void OnSwapLeave(GumInvocationContext *context, gpointer user_data) {
-    (void) context;
-    (void) user_data;
-}
-
-static GumInvocationListenerCallbacks SwapCallbacks = {
-    OnSwapEnter,
-    OnSwapLeave
-};
-
 static void RenderFrame(EGLDisplay dpy, EGLSurface surface) {
     eglQuerySurface(dpy, surface, EGL_WIDTH, &glWidth);
     eglQuerySurface(dpy, surface, EGL_HEIGHT, &glHeight);
@@ -264,6 +250,24 @@ static void RenderFrame(EGLDisplay dpy, EGLSurface surface) {
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 }
 
+static void OnSwapEnter(
+    GumInvocationContext *context,
+    gpointer user_data
+) {
+    EGLDisplay dpy = (EGLDisplay) gum_invocation_context_get_nth_argument(context, 0);
+    EGLSurface surface = (EGLSurface) gum_invocation_context_get_nth_argument(context, 1);
+
+    RenderFrame(dpy, surface);
+}
+
+static void OnSwapLeave(
+    GumInvocationContext *context,
+    gpointer user_data
+) {
+    (void) context;
+    (void) user_data;
+}
+
 static void *Init(void *) {
     SMAttach(targetLibName);
 
@@ -273,32 +277,32 @@ static void *Init(void *) {
         AgentReady.store(ScriptBridge_LoadAgent());
     }
 
-    gum_init_embedded();
-
     Interceptor = gum_interceptor_obtain();
 
-    gpointer swapBuffers = gum_module_find_export_by_name(
-        "libEGL.so",
-        "eglSwapBuffers"
-    );
+    GumModule *eglModule = gum_process_find_module_by_name("libEGL.so");
 
-    if (swapBuffers) {
-        GumInvocationListener *listener = gum_make_call_listener(
-            (GumInvocationListenerCallbacks *) &SwapCallbacks,
-            nullptr,
-            nullptr
+    if (Interceptor && eglModule) {
+        GumAddress swapAddress = gum_module_find_export_by_name(
+            eglModule,
+            "eglSwapBuffers"
         );
 
-        if (listener) {
-            gum_interceptor_attach(
-                Interceptor,
-                swapBuffers,
-                listener,
+        if (swapAddress != 0) {
+            SwapListener = gum_make_call_listener(
+                OnSwapEnter,
+                OnSwapLeave,
                 nullptr,
-                GUM_ATTACH_FLAGS_NONE
+                nullptr
             );
 
-            SwapListener = listener;
+            if (SwapListener) {
+                gum_interceptor_attach(
+                    Interceptor,
+                    GSIZE_TO_POINTER(swapAddress),
+                    SwapListener,
+                    nullptr
+                );
+            }
         }
     }
 
