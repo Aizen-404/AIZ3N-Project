@@ -198,19 +198,24 @@ static bool run_request(Request &request) {
 }
 
 static void runtime_thread() {
+    gum_init_embedded();
+
     GMainContext *context = g_main_context_new();
 
     if (!context) {
-        std::lock_guard<std::mutex> lock(g_state_mutex);
-        g_ready = true;
-        g_initialized = false;
+        gum_deinit_embedded();
+
+        {
+            std::lock_guard<std::mutex> lock(g_state_mutex);
+            g_ready = true;
+            g_initialized = false;
+        }
+
         g_state_cv.notify_all();
         return;
     }
 
     g_main_context_push_thread_default(context);
-
-    gum_init_embedded();
 
     GumScriptBackend *backend =
         gum_script_backend_obtain_qjs();
@@ -253,10 +258,10 @@ static void runtime_thread() {
         g_object_unref(backend);
     }
 
-    gum_deinit_embedded();
-
     g_main_context_pop_thread_default(context);
     g_main_context_unref(context);
+
+    gum_deinit_embedded();
 
     {
         std::lock_guard<std::mutex> lock(g_state_mutex);
