@@ -19,7 +19,7 @@
 #include "Il2cpp/il2cpp-class.h"
 #include "Il2cpp/Il2cpp.h"
 #include "ScriptBridge.h"
-#include "frida-gum.h"
+#include "frida-gumjs.h"
 
 static bool FlyActive = false;
 static std::atomic<bool> AgentReady(false);
