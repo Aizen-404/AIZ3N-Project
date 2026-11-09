@@ -35,7 +35,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "20"
-          cache: npm
 
       - name: Install Node Dependencies
         run: |
@@ -48,14 +47,19 @@ jobs:
             exit 1
           fi
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-
       - name: Install Android NDK r29
         run: |
-          sdkmanager "ndk;${NDK_VERSION}"
-          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/${NDK_VERSION}" >> "$GITHUB_ENV"
-          echo "$ANDROID_HOME/ndk/${NDK_VERSION}" >> "$GITHUB_PATH"
+          SDK="/usr/local/lib/android/sdk"
+          SDKMANAGER="$(find "$SDK/cmdline-tools" -type f -name sdkmanager | sort | tail -n 1)"
+          if [ -z "$SDKMANAGER" ]; then
+            echo "sdkmanager not found"
+            exit 1
+          fi
+          yes | "$SDKMANAGER" --licenses
+          "$SDKMANAGER" --install "ndk;${NDK_VERSION}"
+          echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
+          echo "ANDROID_NDK_HOME=$SDK/ndk/${NDK_VERSION}" >> "$GITHUB_ENV"
+          echo "$SDK/ndk/${NDK_VERSION}" >> "$GITHUB_PATH"
 
       - name: Download Frida GumJS Release
         env:
@@ -70,7 +74,7 @@ jobs:
 
       - name: Build AIZ3N
         run: |
-          ndk-build \
+          "$ANDROID_NDK_HOME/ndk-build" \
             NDK_PROJECT_PATH="$GITHUB_WORKSPACE" \
             APP_BUILD_SCRIPT="$GITHUB_WORKSPACE/jni/Android.mk" \
             NDK_APPLICATION_MK="$GITHUB_WORKSPACE/jni/Application.mk" \
