@@ -220,7 +220,7 @@ static void BeginDraw() {
             ImVec2(buttonWidth, 48)
         )) {
             if (AgentLoaded && ScriptBridge_SendCommand(
-                "{\"type\":\"command\",\"payload\":{\"action\":\"disable\"}}"
+                "{\"type\":\"command\",\"payload\":{\"action\":\"set_gravity\",\"value\":1.0}}"
             )) {
                 FlyActive = false;
             }
